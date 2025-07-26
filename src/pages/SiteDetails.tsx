@@ -22,7 +22,6 @@ export default function SiteDetails() {
   const [isCommenting, setIsCommenting] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [selectedRating, setSelectedRating] = useState<"positive" | "negative" | "neutral">("neutral");
-  const [authorName, setAuthorName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (loading) {
@@ -35,11 +34,12 @@ export default function SiteDetails() {
 
   const handleSubmitComment = async () => {
     if (!user) return;
-    if (!commentText.trim() || !authorName.trim()) return;
+    if (!commentText.trim()) return;
     setSubmitting(true);
-    await addComment(site.id, commentText.trim(), selectedRating, authorName.trim());
+    // Prefer user.user_metadata.display_name, fallback to user.email
+    const displayName = user.user_metadata?.display_name || user.email || "User";
+    await addComment(site.id, commentText.trim(), selectedRating, displayName);
     setCommentText("");
-    setAuthorName("");
     setSelectedRating("neutral");
     setIsCommenting(false);
     setSubmitting(false);
@@ -86,13 +86,13 @@ export default function SiteDetails() {
               isCommenting ? (
                 <div className="space-y-3 border rounded-lg p-4 bg-muted/50 mb-6">
                   <div>
-                    <Label className="text-sm font-medium">Your Name</Label>
-                    <Input
-                      type="text"
-                      value={authorName}
-                      onChange={(e) => setAuthorName(e.target.value)}
+                    <Label className="text-sm font-medium">Your Experience</Label>
+                    <Textarea
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Share your experience with this government website..."
                       className="mt-1"
-                      placeholder="Enter your name"
+                      rows={3}
                     />
                   </div>
                   <div>
@@ -124,18 +124,8 @@ export default function SiteDetails() {
                       </Button>
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium">Your Experience</Label>
-                    <Textarea
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Share your experience with this government website..."
-                      className="mt-1"
-                      rows={3}
-                    />
-                  </div>
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={handleSubmitComment} disabled={submitting || !commentText.trim() || !authorName.trim()}>
+                    <Button size="sm" onClick={handleSubmitComment} disabled={submitting || !commentText.trim()}>
                       {submitting ? "Submitting..." : "Submit Review"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setIsCommenting(false)} disabled={submitting}>

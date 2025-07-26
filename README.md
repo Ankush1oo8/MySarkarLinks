@@ -7,7 +7,7 @@ MySarkarLinks is a community-driven platform to discover, review, and share expe
 
 ## 🚀 Live Site
 
-Access the platform here: [https://mysarkarlinks.example.com](https://mysarkarlinks.example.com)
+Access the platform here: [https://mysarkarilinks.netlify.app](https://mysarkarilinks.netlify.app)
 
 ---
 

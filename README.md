@@ -14,9 +14,11 @@ Access the platform here: [https://mysarkarlinks.example.com](https://mysarkarli
 ## 📸 Screenshots & Images
 
 <!-- Add screenshots or demo images below. Example: -->
-![Home Page](./screenshots/homepage.png)
-![Site Details](./screenshots/sitedetails.png)
+![Home Page](<img width="1366" height="643" alt="image" src="https://github.com/user-attachments/assets/8dab975e-9ae7-411e-aeef-2172f7b4d940" />
+)
 
+![Home Page](<img width="1351" height="639" alt="image" src="https://github.com/user-attachments/assets/5ecbb089-9f1e-49b3-a984-51bb136dd4cb" />
+)
 ---
 
 ## 🛠️ Features

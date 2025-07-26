@@ -8,12 +8,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Flag, Users, ExternalLink, MessageSquare, LogOut, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useComments } from "@/hooks/useComments";
 
 const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const { sites, loading } = useSites();
   const { user, signOut, isAdmin } = useAuth();
+  const { comments: reviews, loading: loadingReviews } = useComments();
 
   const handleSignOut = async () => {
     await signOut();
@@ -31,7 +33,11 @@ const Index = () => {
   // Get unique categories from sites
   const categories = Array.from(new Set(sites.map(site => site.category))).sort();
 
-  if (loading) {
+  // Calculate stats
+  const totalReviews = reviews.length;
+  const positiveReviews = reviews.filter(r => r.rating === "positive").length;
+
+  if (loading || loadingReviews) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-xl">Loading government websites...</p>
@@ -101,14 +107,14 @@ const Index = () => {
             <Card>
               <CardContent className="p-4 text-center">
                 <MessageSquare className="h-8 w-8 text-accent mx-auto mb-2" />
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">{totalReviews}</div>
                 <div className="text-sm text-muted-foreground">Community Reviews</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">{positiveReviews}</div>
                 <div className="text-sm text-muted-foreground">Positive Reviews</div>
               </CardContent>
             </Card>

@@ -11,6 +11,8 @@ export interface Site {
   status: string;
   created_at: string;
   updated_at: string;
+  author_name?: string;
+  author_email?: string;
 }
 
 export interface Comment {
@@ -60,6 +62,28 @@ export const useSites = () => {
     loading,
     refetch: fetchSites
   };
+};
+
+// Add a function to add a new site as pending
+export const addSite = async (
+  site: { title: string; url: string; description: string; category: string },
+  authorName?: string,
+  authorEmail?: string
+) => {
+  try {
+    const { error } = await supabase
+      .from('sites')
+      .insert({
+        ...site,
+        status: 'pending',
+        author_name: authorName,
+        author_email: authorEmail,
+      });
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 };
 
 export const useComments = (siteId?: string) => {

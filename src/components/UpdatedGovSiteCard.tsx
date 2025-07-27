@@ -52,6 +52,9 @@ export const UpdatedGovSiteCard = ({ site }: UpdatedGovSiteCardProps) => {
               <span>{comments.length} reviews</span>
             </div>
           </div>
+          {site.status === 'active' && site.author_name && (
+            <div className="text-xs text-muted-foreground mb-2">Submitted by <span className="font-medium">{site.author_name}</span></div>
+          )}
         </CardContent>
         <CardFooter className="flex gap-2 mt-2">
           <Button asChild className="flex-1" onClick={e => { e.stopPropagation(); }}>

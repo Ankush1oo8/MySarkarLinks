@@ -7,8 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Flag, Users, ExternalLink, MessageSquare, LogOut, Settings } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useComments } from "@/hooks/useComments";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { addSite } from "@/hooks/useSites";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -16,9 +23,27 @@ const Index = () => {
   const { sites, loading } = useSites();
   const { user, signOut, isAdmin } = useAuth();
   const { comments: reviews, loading: loadingReviews } = useComments();
+  const [suggestModalOpen, setSuggestModalOpen] = useState(false);
+  const [suggestForm, setSuggestForm] = useState({
+    title: "",
+    url: "",
+    description: "",
+    category: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleSuggestClick = () => {
+    if (!user) {
+      navigate('/auth');
+    } else {
+      setSuggestModalOpen(true);
+    }
   };
 
   const filteredSites = useMemo(() => {
@@ -36,6 +61,30 @@ const Index = () => {
   // Calculate stats
   const totalReviews = reviews.length;
   const positiveReviews = reviews.filter(r => r.rating === "positive").length;
+
+  // Placeholder for submit handler (to be implemented)
+  const handleSuggestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const authorName = user?.user_metadata?.display_name || user?.email || undefined;
+    const authorEmail = user?.email || undefined;
+    const result = await addSite(suggestForm, authorName, authorEmail);
+    setSubmitting(false);
+    if (result.success) {
+      toast({
+        title: "Site Submitted",
+        description: "Your suggestion has been submitted and is awaiting admin approval.",
+      });
+      setSuggestModalOpen(false);
+      setSuggestForm({ title: "", url: "", description: "", category: "" });
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to submit site.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (loading || loadingReviews) {
     return (
@@ -68,6 +117,13 @@ const Index = () => {
               <Badge variant="outline" className="hidden sm:flex">
                 🇮🇳 For Indian Citizens
               </Badge>
+              <Button 
+                variant="default"
+                size="sm"
+                onClick={handleSuggestClick}
+              >
+                + Suggest a Site
+              </Button>
               {user ? (
                 <>
                   {isAdmin && (
@@ -179,6 +235,74 @@ const Index = () => {
           </div>
         </div>
       </footer>
+
+      {/* Suggest a Site Modal */}
+      <Dialog open={suggestModalOpen} onOpenChange={setSuggestModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Suggest a New Government Site</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSuggestSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="suggest-title">Site Title</Label>
+              <Input
+                id="suggest-title"
+                value={suggestForm.title}
+                onChange={e => setSuggestForm(f => ({ ...f, title: e.target.value }))}
+                required
+                disabled={!user}
+              />
+            </div>
+            <div>
+              <Label htmlFor="suggest-url">Website URL</Label>
+              <Input
+                id="suggest-url"
+                type="url"
+                value={suggestForm.url}
+                onChange={e => setSuggestForm(f => ({ ...f, url: e.target.value }))}
+                required
+                disabled={!user}
+              />
+            </div>
+            <div>
+              <Label htmlFor="suggest-category">Category</Label>
+              <Select value={suggestForm.category} onValueChange={value => setSuggestForm(f => ({ ...f, category: value }))} required disabled={!user}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="suggest-description">Description</Label>
+              <Textarea
+                id="suggest-description"
+                value={suggestForm.description}
+                onChange={e => setSuggestForm(f => ({ ...f, description: e.target.value }))}
+                rows={3}
+                required
+                disabled={!user}
+              />
+            </div>
+            {!user && (
+              <div className="text-xs text-destructive font-medium">Sign in to suggest a site.</div>
+            )}
+            {user && (
+              <div className="text-xs text-muted-foreground">Submitting as: <span className="font-medium">{user.user_metadata?.display_name || user.email}</span></div>
+            )}
+            <DialogFooter className="mt-4">
+              <Button type="submit" className="w-full" disabled={submitting || !user}>{submitting ? "Submitting..." : "Submit Suggestion"}</Button>
+              <DialogClose asChild>
+                <Button variant="outline" className="w-full mt-2" type="button">Cancel</Button>
+              </DialogClose>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

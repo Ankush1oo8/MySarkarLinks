@@ -81,6 +81,7 @@ function Admin() {
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [pendingSites, setPendingSites] = useState<Site[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -96,10 +97,11 @@ function Admin() {
 
   const fetchData = async () => {
   try {
-    // Fetch all sites (including inactive)
+    // Fetch all active/inactive sites for Manage Sites
     const { data: sitesData, error: sitesError } = await supabase
       .from('sites')
       .select('*')
+      .in('status', ['active', 'inactive'])
       .order('created_at', { ascending: false });
 
     if (sitesError) throw sitesError;
@@ -123,6 +125,15 @@ function Admin() {
       .order('created_at', { ascending: false });
     if (approvedError) throw approvedError;
     setApprovedComments(approvedData || []);
+
+    // Fetch pending sites for Pending Sites tab
+    const { data: pendingSitesData, error: pendingSitesError } = await supabase
+      .from('sites')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (pendingSitesError) throw pendingSitesError;
+    setPendingSites(pendingSitesData || []);
   } catch (error: any) {
     toast({
       title: "Error",
@@ -272,6 +283,39 @@ const handleEditCommentSave = async () => {
     }
   };
 
+  const handlePendingSiteAction = async (siteId: string, action: 'approve' | 'reject') => {
+    try {
+      if (action === 'approve') {
+        const { error } = await supabase
+          .from('sites')
+          .update({ status: 'active' })
+          .eq('id', siteId);
+        if (error) throw error;
+        toast({
+          title: 'Site approved',
+          description: 'The site has been approved and is now active.',
+        });
+      } else if (action === 'reject') {
+        const { error } = await supabase
+          .from('sites')
+          .delete()
+          .eq('id', siteId);
+        if (error) throw error;
+        toast({
+          title: 'Site deleted',
+          description: 'The site has been rejected and deleted.',
+        });
+      }
+      await fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: `Failed to ${action} site`,
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (loading) {
     return <div className="p-8">Loading admin panel...</div>;
   }
@@ -333,10 +377,10 @@ const handleEditCommentSave = async () => {
       <h1 className="text-3xl font-bold mb-6">Admin Panel</h1>
       
       <Tabs defaultValue="sites" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="sites">Manage Sites</TabsTrigger>
-          <TabsTrigger value="comments">
-            Review Comments 
+          <TabsTrigger value="pending-sites">Pending Sites</TabsTrigger>
+          <TabsTrigger value="comments">Review Comments 
             {pendingComments.length > 0 && (
               <Badge variant="destructive" className="ml-2">
                 {pendingComments.length}
@@ -346,114 +390,47 @@ const handleEditCommentSave = async () => {
           <TabsTrigger value="approved">Approved Reviews</TabsTrigger>
           <TabsTrigger value="add-site">Add New Site</TabsTrigger>
         </TabsList>
-        <TabsContent value="approved" className="space-y-4">
+        <TabsContent value="pending-sites" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Approved Reviews</CardTitle>
-              <CardDescription>Edit reviews that are already approved</CardDescription>
+              <CardTitle>Pending Sites</CardTitle>
+              <CardDescription>Review and approve or reject new site suggestions</CardDescription>
             </CardHeader>
             <CardContent>
-              {approvedComments.length === 0 ? (
-                <p className="text-muted-foreground">No approved reviews found.</p>
+              {pendingSites.length === 0 ? (
+                <p className="text-muted-foreground">No pending sites found.</p>
               ) : (
                 <div className="space-y-4">
-                  {approvedComments.map((comment) => {
-                    const site = sites.find(s => s.id === comment.site_id);
-                    return (
-                      <div key={comment.id} className="border rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium">{comment.author_name}</span>
-                              <div className="flex items-center gap-1">
-                                {comment.rating === "positive" && <ThumbsUp className="h-4 w-4 text-green-600" />}
-                                {comment.rating === "negative" && <ThumbsDown className="h-4 w-4 text-red-600" />}
-                                {comment.rating === "neutral" && <Star className="h-4 w-4 text-muted-foreground" />}
-                              </div>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              On: {site?.title || 'Unknown Site'}
-                            </p>
+                  {pendingSites.map((site) => (
+                    <div key={site.id} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-medium">{site.title}</h3>
+                            <Badge variant="secondary">Pending</Badge>
+                            <Badge variant="outline">{site.category}</Badge>
                           </div>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => openEditCommentModal(comment)}
-                            >
-                              <Pencil className="h-4 w-4 mr-1" /> Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => setDeleteCommentId(comment.id)}
-                            >
-                              <X className="h-4 w-4 mr-1" /> Delete
-                            </Button>
-                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">{site.description}</p>
+                          <a href={site.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline inline-flex items-center gap-1">{site.url} <ExternalLink className="h-3 w-3" /></a>
+                          {site.author_name && (
+                            <div className="text-xs text-muted-foreground mt-2">Submitted by <span className="font-medium">{site.author_name}</span></div>
+                          )}
                         </div>
-                        <p className="text-sm">{comment.content}</p>
+                        <div className="flex flex-col gap-2 items-end">
+                          <Button variant="default" size="sm" onClick={() => handlePendingSiteAction(site.id, 'approve')}>
+                            Approve
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handlePendingSiteAction(site.id, 'reject')}>
+                            Reject
+                          </Button>
+                        </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
           </Card>
-      {/* Delete Approved Review Confirmation Dialog */}
-      <Dialog open={!!deleteCommentId} onOpenChange={open => { if (!open) setDeleteCommentId(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Review</DialogTitle>
-          </DialogHeader>
-          <div>Are you sure you want to delete this review? This action cannot be undone.</div>
-          <DialogFooter className="mt-4">
-            <Button variant="destructive" onClick={handleDeleteComment} className="w-full">Delete</Button>
-            <DialogClose asChild>
-              <Button variant="outline" className="w-full mt-2" type="button" onClick={() => setDeleteCommentId(null)}>Cancel</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-        {/* Edit Approved Review Modal */}
-        <Dialog open={editCommentModalOpen} onOpenChange={setEditCommentModalOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit Review</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-review-content">Review Content</Label>
-                <Textarea
-                  id="edit-review-content"
-                  value={editCommentForm.content}
-                  onChange={e => handleEditCommentFormChange('content', e.target.value)}
-                  rows={3}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-review-rating">Rating</Label>
-                <Select value={editCommentForm.rating} onValueChange={value => handleEditCommentFormChange('rating', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a rating" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="positive">Positive</SelectItem>
-                    <SelectItem value="neutral">Neutral</SelectItem>
-                    <SelectItem value="negative">Negative</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter className="mt-4">
-              <Button onClick={handleEditCommentSave} className="w-full">Save Changes</Button>
-              <DialogClose asChild>
-                <Button variant="outline" className="w-full mt-2" type="button">Cancel</Button>
-              </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
         </TabsContent>
 
         <TabsContent value="sites" className="space-y-4">
@@ -590,7 +567,242 @@ const handleEditCommentSave = async () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="comments" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Review Comments</CardTitle>
+              <CardDescription>Approve or reject comments that are pending</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {pendingComments.length === 0 ? (
+                <p className="text-muted-foreground">No pending comments found.</p>
+              ) : (
+                <div className="space-y-4">
+                  {pendingComments.map((comment) => {
+                    const site = sites.find(s => s.id === comment.site_id);
+                    return (
+                      <div key={comment.id} className="border rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{comment.author_name}</span>
+                              <div className="flex items-center gap-1">
+                                {comment.rating === "positive" && <ThumbsUp className="h-4 w-4 text-green-600" />}
+                                {comment.rating === "negative" && <ThumbsDown className="h-4 w-4 text-red-600" />}
+                                {comment.rating === "neutral" && <Star className="h-4 w-4 text-muted-foreground" />}
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              On: {site?.title || 'Unknown Site'}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => openEditCommentModal(comment)}
+                            >
+                              <Pencil className="h-4 w-4 mr-1" /> Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => setDeleteCommentId(comment.id)}
+                            >
+                              <X className="h-4 w-4 mr-1" /> Delete
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-sm">{comment.content}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+      {/* Delete Approved Review Confirmation Dialog */}
+      <Dialog open={!!deleteCommentId} onOpenChange={open => { if (!open) setDeleteCommentId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Review</DialogTitle>
+          </DialogHeader>
+          <div>Are you sure you want to delete this review? This action cannot be undone.</div>
+          <DialogFooter className="mt-4">
+            <Button variant="destructive" onClick={handleDeleteComment} className="w-full">Delete</Button>
+            <DialogClose asChild>
+              <Button variant="outline" className="w-full mt-2" type="button" onClick={() => setDeleteCommentId(null)}>Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+        {/* Edit Approved Review Modal */}
+        <Dialog open={editCommentModalOpen} onOpenChange={setEditCommentModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Review</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-review-content">Review Content</Label>
+                <Textarea
+                  id="edit-review-content"
+                  value={editCommentForm.content}
+                  onChange={e => handleEditCommentFormChange('content', e.target.value)}
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-review-rating">Rating</Label>
+                <Select value={editCommentForm.rating} onValueChange={value => handleEditCommentFormChange('rating', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a rating" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="positive">Positive</SelectItem>
+                    <SelectItem value="neutral">Neutral</SelectItem>
+                    <SelectItem value="negative">Negative</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter className="mt-4">
+              <Button onClick={handleEditCommentSave} className="w-full">Save Changes</Button>
+              <DialogClose asChild>
+                <Button variant="outline" className="w-full mt-2" type="button">Cancel</Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        </TabsContent>
+
+        <TabsContent value="approved" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Approved Reviews</CardTitle>
+              <CardDescription>Edit reviews that are already approved</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {approvedComments.length === 0 ? (
+                <p className="text-muted-foreground">No approved reviews found.</p>
+              ) : (
+                <div className="space-y-4">
+                  {approvedComments.map((comment) => {
+                    const site = sites.find(s => s.id === comment.site_id);
+                    return (
+                      <div key={comment.id} className="border rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{comment.author_name}</span>
+                              <div className="flex items-center gap-1">
+                                {comment.rating === "positive" && <ThumbsUp className="h-4 w-4 text-green-600" />}
+                                {comment.rating === "negative" && <ThumbsDown className="h-4 w-4 text-red-600" />}
+                                {comment.rating === "neutral" && <Star className="h-4 w-4 text-muted-foreground" />}
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              On: {site?.title || 'Unknown Site'}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => openEditCommentModal(comment)}
+                            >
+                              <Pencil className="h-4 w-4 mr-1" /> Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => setDeleteCommentId(comment.id)}
+                            >
+                              <X className="h-4 w-4 mr-1" /> Delete
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-sm">{comment.content}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+      {/* Delete Approved Review Confirmation Dialog */}
+      <Dialog open={!!deleteCommentId} onOpenChange={open => { if (!open) setDeleteCommentId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Review</DialogTitle>
+          </DialogHeader>
+          <div>Are you sure you want to delete this review? This action cannot be undone.</div>
+          <DialogFooter className="mt-4">
+            <Button variant="destructive" onClick={handleDeleteComment} className="w-full">Delete</Button>
+            <DialogClose asChild>
+              <Button variant="outline" className="w-full mt-2" type="button" onClick={() => setDeleteCommentId(null)}>Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+        {/* Edit Approved Review Modal */}
+        <Dialog open={editCommentModalOpen} onOpenChange={setEditCommentModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Review</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-review-content">Review Content</Label>
+                <Textarea
+                  id="edit-review-content"
+                  value={editCommentForm.content}
+                  onChange={e => handleEditCommentFormChange('content', e.target.value)}
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-review-rating">Rating</Label>
+                <Select value={editCommentForm.rating} onValueChange={value => handleEditCommentFormChange('rating', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a rating" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="positive">Positive</SelectItem>
+                    <SelectItem value="neutral">Neutral</SelectItem>
+                    <SelectItem value="negative">Negative</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter className="mt-4">
+              <Button onClick={handleEditCommentSave} className="w-full">Save Changes</Button>
+              <DialogClose asChild>
+                <Button variant="outline" className="w-full mt-2" type="button">Cancel</Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        </TabsContent>
       </Tabs>
+      {/* Delete Site Confirmation Dialog */}
+      <Dialog open={!!deleteSiteId} onOpenChange={open => { if (!open) setDeleteSiteId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Site</DialogTitle>
+          </DialogHeader>
+          <div>Are you sure you want to delete this site? This action cannot be undone.</div>
+          <DialogFooter className="mt-4">
+            <Button variant="destructive" onClick={handleDeleteSite} className="w-full">Delete</Button>
+            <DialogClose asChild>
+              <Button variant="outline" className="w-full mt-2" type="button" onClick={() => setDeleteSiteId(null)}>Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

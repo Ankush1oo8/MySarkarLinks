@@ -379,7 +379,14 @@ const handleEditCommentSave = async () => {
       <Tabs defaultValue="sites" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="sites">Manage Sites</TabsTrigger>
-          <TabsTrigger value="pending-sites">Pending Sites</TabsTrigger>
+          <TabsTrigger value="pending-sites">
+            Pending Sites
+            {pendingSites.length > 0 && (
+              <Badge variant="destructive" className="ml-2">
+                {pendingSites.length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="comments">Review Comments 
             {pendingComments.length > 0 && (
               <Badge variant="destructive" className="ml-2">
@@ -786,6 +793,77 @@ const handleEditCommentSave = async () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </TabsContent>
+
+        <TabsContent value="add-site" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Add New Site</CardTitle>
+              <CardDescription>Manually add a new government website to the directory</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleAddSite} className="space-y-4">
+                <div>
+                  <Label htmlFor="new-title">Site Title</Label>
+                  <Input
+                    id="new-title"
+                    value={newSite.title}
+                    onChange={e => setNewSite(s => ({ ...s, title: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="new-url">Website URL</Label>
+                  <Input
+                    id="new-url"
+                    type="url"
+                    value={newSite.url}
+                    onChange={e => setNewSite(s => ({ ...s, url: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="new-category">Category</Label>
+                  <Select value={newSite.category} onValueChange={value => setNewSite(s => ({ ...s, category: value }))} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="General Services">General Services</SelectItem>
+                      <SelectItem value="Citizen Engagement">Citizen Engagement</SelectItem>
+                      <SelectItem value="Leadership">Leadership</SelectItem>
+                      <SelectItem value="Security & Administration">Security & Administration</SelectItem>
+                      <SelectItem value="Finance & Economics">Finance & Economics</SelectItem>
+                      <SelectItem value="Foreign Affairs">Foreign Affairs</SelectItem>
+                      <SelectItem value="Defence">Defence</SelectItem>
+                      <SelectItem value="Transportation">Transportation</SelectItem>
+                      <SelectItem value="Health & Welfare">Health & Welfare</SelectItem>
+                      <SelectItem value="Education">Education</SelectItem>
+                      <SelectItem value="Agriculture">Agriculture</SelectItem>
+                      <SelectItem value="Technology">Technology</SelectItem>
+                      <SelectItem value="Environment">Environment</SelectItem>
+                      <SelectItem value="Employment">Employment</SelectItem>
+                      <SelectItem value="Social Welfare">Social Welfare</SelectItem>
+                      <SelectItem value="Urban Development">Urban Development</SelectItem>
+                      <SelectItem value="Energy">Energy</SelectItem>
+                      <SelectItem value="Data & Analytics">Data & Analytics</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="new-description">Description</Label>
+                  <Textarea
+                    id="new-description"
+                    value={newSite.description}
+                    onChange={e => setNewSite(s => ({ ...s, description: e.target.value }))}
+                    rows={3}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full">Add Site</Button>
+              </form>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
       {/* Delete Site Confirmation Dialog */}
